@@ -1,3 +1,7 @@
+> [!IMPORTANT]  
+> This is my personal fork to add a Vietnamese source for education purpose. Not plan to maintain the fork due to skill issues
+
+
 # AnimeScrap
 <p align="center">
   <a href=""><img width="200" height="200" src="https://github.com/fakeyatogod/AnimeScrap/blob/main/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png"></a>
