@@ -1,17 +1,19 @@
-package com.talent.animescrapsources
-
+import com.talent.animescrapsources.animesources.AllAnimeSource
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
 import org.junit.Test
 
-import org.junit.Assert.*
-
-/**
- * Example local unit test, which will execute on the development machine (host).
- *
- * See [testing documentation](http://d.android.com/tools/testing).
- */
-class ExampleUnitTest {
+class MyCoroutineTest {
     @Test
-    fun addition_isCorrect() {
-        assertEquals(4, 2 + 2)
+    fun mySuspendingFunction_performsAsExpected() = runTest {
+        val source = AllAnimeSource()
+
+        val result = source.latestAnime()
+
+        print(result)
+
+        assertEquals(1, 1)
     }
+
 }

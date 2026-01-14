@@ -76,6 +76,7 @@ dependencies {
     implementation "com.google.android.exoplayer:exoplayer-ui:$exo_version"
     implementation "com.google.android.exoplayer:exoplayer-hls:$exo_version"
     implementation "com.google.android.exoplayer:extension-mediasession:$exo_version"
+    implementation "com.google.android.exoplayer:extension-okhttp:$exo_version"
 
     // MVVM
     implementation 'androidx.lifecycle:lifecycle-livedata-ktx:2.6.2'

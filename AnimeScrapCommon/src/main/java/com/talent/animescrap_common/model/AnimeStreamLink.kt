@@ -4,5 +4,6 @@ data class AnimeStreamLink(
     val link: String,
     val subsLink: String,
     val isHls: Boolean,
-    val extraHeaders: HashMap<String, String>? = null
+    val extraHeaders: HashMap<String, String>? = null,
+    val rawPlaylist: String? = null
 )
