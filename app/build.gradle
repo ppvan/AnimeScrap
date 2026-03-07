@@ -8,22 +8,6 @@ plugins {
     id 'kotlin-kapt'
 }
 
-static def getVersionName() {
-    try {
-        def tag = 'git describe --tags --exact-match'.execute().text.trim()
-        if (tag) return tag  // e.g. "1.2.3"
-    } catch (ignored) {}
-    return "0.0.0-dev"  // fallback for untagged commits
-}
-
-static def getVersionCode() {
-    try {
-        // Count total commits as version code
-        return 'git rev-list --count HEAD'.execute().text.trim().toInteger()
-    } catch (ignored) {}
-    return 1
-}
-
 android {
 
     namespace 'com.talent.animescrap'
@@ -33,8 +17,8 @@ android {
         applicationId "com.talent.animescrap"
         minSdk 23
         targetSdk 34
-        versionCode getVersionCode()
-        versionName getVersionName()
+        versionCode 18
+        versionName "2.5.5"
         archivesBaseName = "AnimeScrap"
 
         kapt {
