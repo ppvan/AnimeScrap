@@ -12,9 +12,9 @@ import kotlinx.coroutines.withContext
 import org.jsoup.Jsoup
 
 class UpdateViewModel : ViewModel() {
-    private val githubReleaseLink = "https://github.com/fakeyatogod/AnimeScrap/releases/latest"
+    private val githubReleaseLink = "https://github.com/ppvan/AnimeScrap/releases/latest"
     private val githubAPKLink =
-        "https://github.com/fakeyatogod/AnimeScrap/releases/download/TAG/AnimeScrap-vTAG.apk"
+        "https://github.com/ppvan/AnimeScrap/releases/download/TAG/AnimeScrap-vTAG.apk"
 
     private val _isUpdateAvailable = MutableLiveData<UpdateDetails>().apply {
         checkForNewUpdate()
