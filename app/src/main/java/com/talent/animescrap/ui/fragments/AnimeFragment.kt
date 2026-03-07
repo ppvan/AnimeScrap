@@ -80,7 +80,7 @@ class AnimeFragment : Fragment() {
             .okHttpClient { Utils.httpClient }
             .build()
         settingsPreferenceManager = PreferenceManager.getDefaultSharedPreferences(requireContext())
-        selectedSource = settingsPreferenceManager.getString("source", "yugen")!!
+        selectedSource = settingsPreferenceManager.getString("source", "animevietsub")!!
         isExternalPlayerEnabled = settingsPreferenceManager.getBoolean("external_player", false)
         if (isExternalPlayerEnabled) {
             animeStreamViewModel.animeStreamLink.observe(viewLifecycleOwner) {

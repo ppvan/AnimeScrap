@@ -2,24 +2,32 @@ package com.talent.animescrapsources
 
 import android.content.Context
 import com.talent.animescrap_common.source.AnimeSource
-import com.talent.animescrapsources.animesources.*
+import com.talent.animescrapsources.animesources.AniVietSubSource
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.util.concurrent.TimeUnit
 
 class SourceSelector(context: Context) {
     val sourceMap: Map<String, AnimeSource> = mapOf(
-        "yugen" to YugenSource(),
-        "allanime" to AllAnimeSource(),
-        "animepahe" to AnimePaheSource(),
-        "kawaiifu" to KawaiifuSource(context),
-//        "aniwave" to AniWaveSource(),
-        "kiss_kh" to KissKhSource(),
-        "animevietsub" to AnimeVietSubSource(),
-        "my_asian_tv" to MyAsianTvSource(),
+        "animevietsub" to AniVietSubSource(),
     )
 
     fun getSelectedSource(selectedSource: String): AnimeSource {
-        if (selectedSource in sourceMap.keys) {
-            return sourceMap[selectedSource]!!
+        try {
+            val client = OkHttpClient.Builder()
+                .followRedirects(true)
+                .connectTimeout(10, TimeUnit.SECONDS)
+                .build()
+            val request = Request.Builder().url("https://bit.ly/animevietsubtv").build()
+            client.newCall(request).execute().use { response ->
+                if (response.isSuccessful) {
+                    val finalUrl = response.request.url.toString().removeSuffix("/")
+                    return AniVietSubSource(finalUrl)
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
-        return sourceMap["yugen"]!!
+        return sourceMap["animevietsub"]!!
     }
 }

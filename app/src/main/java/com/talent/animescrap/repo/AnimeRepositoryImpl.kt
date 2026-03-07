@@ -46,9 +46,9 @@ class AnimeRepositoryImpl @Inject constructor(
 
     private val selectedSource = PreferenceManager
         .getDefaultSharedPreferences(application)
-        .getString("source", "yugen")
+        .getString("source", "animevietsub")
 
-    private val animeSource : AnimeSource = SourceSelector(application as Context).getSelectedSource(selectedSource ?: "yugen")
+    private val animeSource : AnimeSource = SourceSelector(application as Context).getSelectedSource(selectedSource ?: "animevietsub")
 
     override suspend fun getAnimeDetailsFromSite(contentLink: String) =
         withContext(Dispatchers.IO) {

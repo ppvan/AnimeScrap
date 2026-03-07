@@ -23,17 +23,10 @@ class LatestFragment : Fragment() {
     private val selectedSource by lazy {
         PreferenceManager
             .getDefaultSharedPreferences(requireContext())
-            .getString("source", "yugen")
+            .getString("source", "animevietsub")
     }
     private val rvAdapter by lazy {
-        AnimeRecyclerAdapter(
-            if (selectedSource in arrayListOf(
-                    "animepahe",
-                    "kiss_kh",
-                    "marin_moe"
-                )
-            ) "landscape card" else "portrait card"
-        )
+        AnimeRecyclerAdapter("portrait card")
     }
 
     // This property is only valid between onCreateView and

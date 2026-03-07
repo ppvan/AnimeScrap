@@ -43,7 +43,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
         sourcePreference.entries = sourceList.map {
             it.uppercase().replace("_", " ")
         }.toTypedArray()
-        sourcePreference.setDefaultValue("yugen")
+        sourcePreference.setDefaultValue("animevietsub")
         sourcePreference.summaryProvider = Preference.SummaryProvider<ListPreference> { preference ->
                 preference.value?.uppercase()?.replace("_", " ")
         }
