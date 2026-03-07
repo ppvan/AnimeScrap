@@ -150,7 +150,7 @@ class AnimeFragment : Fragment() {
                     error(R.drawable.ic_broken_image)
                 }
                 // load cover image.
-                binding.coverAnime.load(animeDetails.animeCover, imageLoader) {
+                binding.coverAnime.load(animeDetails.animeThumbnail, imageLoader) {
                     crossfade(true)
                     placeholder(ShimmerDrawable().apply {
                         setShimmer(shimmer)

@@ -216,13 +216,14 @@ class AniVietSubSource(private val domain: String = BASE_URL) : AnimeSource {
         val animeName   = article?.selectFirst("h1.Title")?.text()?.trim() ?: ""
         val animeDesc   = article?.selectFirst("div.Description")?.text()
             ?.replace(Regex("\\s+"), " ")?.trim() ?: ""
-        val animeCover  = article?.selectFirst(".TPostBg img")?.absUrl("src")
-            ?.ifBlank { article.selectFirst("header .Image img")?.attr("src") } ?: ""
+        val animeCover  = article?.selectFirst(".TPostBg img")?.absUrl("src") ?: ""
+        val animeThumbnail = article?.selectFirst("header .Image img")?.attr("src")?: ""
 
         return AnimeDetails(
             animeName     = animeName,
             animeDesc     = animeDesc,
             animeCover    = animeCover,
+            animeThumbnail = animeThumbnail,
             animeEpisodes = mapOf("VietSub" to eps)
         )
     }

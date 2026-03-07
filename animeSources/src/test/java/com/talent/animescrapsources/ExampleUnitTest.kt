@@ -1,4 +1,3 @@
-import com.talent.animescrapsources.animesources.AllAnimeSource
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
