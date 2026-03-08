@@ -78,6 +78,8 @@ class PlayerFragment : Fragment() {
     private val args: PlayerFragmentArgs by navArgs()
     private var vidSpeed = 1.00f
 
+    private lateinit var sortedEpisodeKeys: List<String>
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -182,15 +184,20 @@ class PlayerFragment : Fragment() {
             if (isError) findNavController().popBackStack()
         }
 
+        sortedEpisodeKeys = animePlayingDetails.animeEpisodeMap.keys
+            .sortedWith(naturalSortComparator())
+
         if (!isInit) {
+            val currentPos = sortedEpisodeKeys.indexOf(animePlayingDetails.animeEpisodeIndex)
             playerViewModel.setAnimeLink(
                 animePlayingDetails.animeUrl,
                 animePlayingDetails.animeEpisodeMap[animePlayingDetails.animeEpisodeIndex] as String,
                 listOf(animePlayingDetails.epType)
             )
-            prevEpBtn.setImageViewEnabled(animePlayingDetails.animeEpisodeIndex.toInt() >= 2)
-            nextEpBtn.setImageViewEnabled(animePlayingDetails.animeEpisodeIndex.toInt() != animePlayingDetails.animeTotalEpisode.toInt())
+            prevEpBtn.setImageViewEnabled(currentPos > 0)
+            nextEpBtn.setImageViewEnabled(currentPos < sortedEpisodeKeys.size - 1)
         }
+
         isInit = true
         return binding.root
 
@@ -200,33 +207,29 @@ class PlayerFragment : Fragment() {
         videoEpTextView.text =
             resources.getString(R.string.episode, animePlayingDetails.animeEpisodeIndex)
     }
-
     private fun setNewEpisode(increment: Int = 1) {
-        animePlayingDetails.animeEpisodeIndex =
-            "${animePlayingDetails.animeEpisodeIndex.toInt() + increment}"
-        println(animePlayingDetails.animeEpisodeIndex)
-        if (animePlayingDetails.animeEpisodeIndex.toInt() > animePlayingDetails.animeTotalEpisode.toInt() || animePlayingDetails.animeEpisodeIndex.toInt() < 1)
+        val currentIndex = sortedEpisodeKeys.indexOf(animePlayingDetails.animeEpisodeIndex)
+        val newIndex = currentIndex + increment
+        if (newIndex < 0 || newIndex >= sortedEpisodeKeys.size) {
             findNavController().popBackStack()
-        else {
-            playerViewModel.setAnimeLink(
-                animePlayingDetails.animeUrl,
-                animePlayingDetails.animeEpisodeMap[animePlayingDetails.animeEpisodeIndex] as String,
-                listOf(animePlayingDetails.epType),
-                true
-            )
-            prevEpBtn.setImageViewEnabled(animePlayingDetails.animeEpisodeIndex.toInt() >= 2)
-            nextEpBtn.setImageViewEnabled(animePlayingDetails.animeEpisodeIndex.toInt() != animePlayingDetails.animeTotalEpisode.toInt())
-            playerViewModel.player.stop()
-//            loadingLayout.visibility = View.VISIBLE
-//            playerView.visibility = View.GONE
-            updateEpisodeName()
-//            qualityMapUnsorted = mutableMapOf()
-            // Set Default Auto Text
-            qualityBtn.text = resources.getString(R.string.quality_btn_txt)
-            sharedPreferences.edit()
-                .putString(animePlayingDetails.animeUrl, animePlayingDetails.animeEpisodeIndex)
-                .apply()
+            return
         }
+        animePlayingDetails.animeEpisodeIndex = sortedEpisodeKeys[newIndex]
+        println(animePlayingDetails.animeEpisodeIndex)
+        playerViewModel.setAnimeLink(
+            animePlayingDetails.animeUrl,
+            animePlayingDetails.animeEpisodeMap[animePlayingDetails.animeEpisodeIndex] as String,
+            listOf(animePlayingDetails.epType),
+            true
+        )
+        prevEpBtn.setImageViewEnabled(newIndex > 0)
+        nextEpBtn.setImageViewEnabled(newIndex < sortedEpisodeKeys.size - 1)
+        playerViewModel.player.stop()
+        updateEpisodeName()
+        qualityBtn.text = resources.getString(R.string.quality_btn_txt)
+        sharedPreferences.edit()
+            .putString(animePlayingDetails.animeUrl, animePlayingDetails.animeEpisodeIndex)
+            .apply()
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -487,4 +490,18 @@ class PlayerFragment : Fragment() {
         }
     }
 
+    private fun naturalSortComparator(): Comparator<String> = Comparator { a, b ->
+        val regex = Regex("(\\d+|\\D+)")
+        val partsA = regex.findAll(a).map { it.value }.toList()
+        val partsB = regex.findAll(b).map { it.value }.toList()
+        for (i in 0 until minOf(partsA.size, partsB.size)) {
+            val pa = partsA[i]; val pb = partsB[i]
+            val cmp = if (pa[0].isDigit() && pb[0].isDigit())
+                pa.padStart(20).compareTo(pb.padStart(20))
+            else
+                pa.compareTo(pb)
+            if (cmp != 0) return@Comparator cmp
+        }
+        partsA.size - partsB.size
+    }
 }

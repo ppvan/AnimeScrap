@@ -30,7 +30,7 @@
     <string name="synopsis_header_title">Synopsis:</string>
     <string name="not_started_yet">Not Started Yet</string>
     <string name="select_episode">Select Episode</string>
-    <string name="episode">Episode %1$s</string>
+    <string name="episode">%1$s</string>
     <string name="last_watched_format">Last Watched: %1$s</string>
     <string name="episode_text">%1$s - %2$s</string>
     <string name="loading_episode">Loading Episode</string>

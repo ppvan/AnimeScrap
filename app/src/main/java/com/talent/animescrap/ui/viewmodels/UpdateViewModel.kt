@@ -9,12 +9,14 @@ import com.talent.animescrap_common.model.UpdateDetails
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import org.jsoup.Jsoup
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
 
 class UpdateViewModel : ViewModel() {
-    private val githubReleaseLink = "https://github.com/ppvan/AnimeScrap/releases/latest"
-    private val githubAPKLink =
-        "https://github.com/ppvan/AnimeScrap/releases/download/TAG/AnimeScrap-vTAG.apk"
+    private val owner = "ppvan"
+    private val repo = "AnimeScrap"
+    private val apiUrl = "https://api.github.com/repos/$owner/$repo/releases/latest"
 
     private val _isUpdateAvailable = MutableLiveData<UpdateDetails>().apply {
         checkForNewUpdate()
@@ -26,26 +28,48 @@ class UpdateViewModel : ViewModel() {
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
                 try {
-                    val doc = Jsoup.connect(githubReleaseLink).get()
-                    val updateDesc = try {
-                        doc.select(".markdown-body").text()
-                    } catch (_: Exception) {
-                        "No Update Description found"
+                    val json = fetchJson(apiUrl)
+                    val tagName = json.getString("tag_name")          // e.g. "v1.2.3"
+                    val body = json.optString("body", "No update description found.")
+                    val latestVersion = tagName.trimStart('v')           // strip leading 'v'
+
+                    // Prefer the APK asset's browser_download_url if present, fall back to constructed URL
+                    val apkUrl = runCatching {
+                        val assets = json.getJSONArray("assets")
+                        (0 until assets.length())
+                            .map { assets.getJSONObject(it) }
+                            .first { it.getString("name").endsWith(".apk") }
+                            .getString("browser_download_url")
+                    }.getOrElse {
+                        "https://github.com/$owner/$repo/releases/download/$tagName/AnimeScrap-v$latestVersion.apk"
                     }
-                    println("Update desc = $updateDesc")
-                    val latestVersion =
-                        Regex("\\d+\\.\\d+\\.\\d+").find(doc.toString())?.value
-                    println("$currentVersion == $latestVersion = ${latestVersion == currentVersion}")
+
+                    println("current=$currentVersion latest=$latestVersion")
                     _isUpdateAvailable.postValue(
                         UpdateDetails(
-                            latestVersion != currentVersion,
-                            githubAPKLink.replace("TAG", latestVersion ?: currentVersion),
-                            updateDesc
+                            isUpdateAvailable = latestVersion != currentVersion,
+                            link = apkUrl,
+                            description = body
                         )
                     )
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    e.printStackTrace()
                 }
             }
+        }
+    }
+
+    private fun fetchJson(urlString: String): JSONObject {
+        val connection = (URL(urlString).openConnection() as HttpURLConnection).apply {
+            setRequestProperty("Accept", "application/vnd.github+json")
+            setRequestProperty("X-GitHub-Api-Version", "2022-11-28")
+            connectTimeout = 10_000
+            readTimeout = 10_000
+        }
+        return try {
+            JSONObject(connection.inputStream.bufferedReader().readText())
+        } finally {
+            connection.disconnect()
         }
     }
 }

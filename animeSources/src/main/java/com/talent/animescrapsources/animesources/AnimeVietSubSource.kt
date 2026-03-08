@@ -208,8 +208,7 @@ class AniVietSubSource(private val domain: String = BASE_URL) : AnimeSource {
         val eps = doc.select("#list-server li.episode > a.btn-episode").associate { a ->
             val title = a.attr("title")
             val hash  = a.attr("data-hash")
-            val key = Regex("""\d+""").findAll(title).joinToString("") { it.value }
-            key to hash
+            title to hash
         }
 
         val article     = doc.selectFirst("article.TPost")
@@ -230,12 +229,15 @@ class AniVietSubSource(private val domain: String = BASE_URL) : AnimeSource {
 
     private fun extractMovies(html: String): List<SimpleAnime> {
         val doc = Jsoup.parse(html)
+        val bgUrlRegex = Regex("""url\(['"]?(.*?)['"]?\)""")
         return doc.select("li:not(.ss-bottom)").mapNotNull { el ->
             val titleEl = el.selectFirst(".ss-title") ?: return@mapNotNull null
             val title   = titleEl.text().trim()
             val href    = titleEl.attr("href")
             if (title.isEmpty() || href.isEmpty()) return@mapNotNull null
-            SimpleAnime(animeName = title, animeImageURL = "", animeLink = href)
+            val style      = el.selectFirst(".thumb")?.attr("style") ?: ""
+            val imageUrl   = bgUrlRegex.find(style)?.groupValues?.get(1) ?: ""
+            SimpleAnime(animeName = title, animeImageURL = imageUrl, animeLink = href)
         }
     }
 
