@@ -4,6 +4,7 @@ import android.app.Application
 import android.media.session.PlaybackState
 import androidx.media3.session.MediaSession
 import android.net.Uri
+import android.util.Log
 import android.widget.Toast
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
@@ -32,6 +33,7 @@ import androidx.media3.exoplayer.source.SingleSampleMediaSource
 import androidx.media3.exoplayer.hls.HlsMediaSource
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.analytics.AnalyticsListener
 import com.talent.animescrap_common.model.AnimeStreamLink
 import com.talent.animescrap.repo.AnimeRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -74,7 +76,7 @@ class PlayerViewModel @Inject constructor(
     private var qualityMapUnsorted: MutableMap<String, Int> = mutableMapOf()
     var qualityMapSorted: MutableMap<String, Int> = mutableMapOf()
 
-    private lateinit var mediaSession: MediaSession
+    private var mediaSession: MediaSession
 
     private var simpleCache: SimpleCache? = null
     private val databaseProvider = StandaloneDatabaseProvider(app)
@@ -203,6 +205,7 @@ class PlayerViewModel @Inject constructor(
         mediaSession.release()
     }
 
+
     private fun createCombinedDataSourceFactory(
         m3u8Content: String,
         httpDataSourceFactory: DataSource.Factory
@@ -210,64 +213,81 @@ class PlayerViewModel @Inject constructor(
 
         val inMemoryDataSourceFactory = DataSource.Factory {
             object : DataSource {
-
                 private var inputStream: ByteArrayInputStream? = null
-
                 override fun addTransferListener(transferListener: TransferListener) {}
-
                 override fun open(dataSpec: DataSpec): Long {
                     val data = m3u8Content.toByteArray(Charsets.UTF_8)
                     inputStream = ByteArrayInputStream(data)
                     return data.size.toLong()
                 }
-
-                override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
-                    return inputStream?.read(buffer, offset, length) ?: -1
-                }
-
+                override fun read(buffer: ByteArray, offset: Int, length: Int): Int =
+                    inputStream?.read(buffer, offset, length) ?: -1
                 override fun getUri(): Uri? = Uri.parse("memory://playlist.m3u8")
-
                 override fun getResponseHeaders(): Map<String, List<String>> = emptyMap()
-
-                override fun close() {
-                    inputStream?.close()
-                }
+                override fun close() { inputStream?.close() }
             }
         }
 
         return DataSource.Factory {
             object : DataSource {
-
                 private var currentDataSource: DataSource? = null
+                private var isSegment = false
+                private var headerSkipped = false
+                private val FAKE_HEADER_SIZE = 128
 
                 override fun addTransferListener(transferListener: TransferListener) {
                     currentDataSource?.addTransferListener(transferListener)
                 }
 
                 override fun open(dataSpec: DataSpec): Long {
-                    val uri = dataSpec.uri
+                    val uri = dataSpec.uri.toString()
 
-                    currentDataSource = if (uri.toString().contains(".m3u8")) {
+                    isSegment = !uri.contains(".m3u8")
+                    headerSkipped = false
+
+                    currentDataSource = if (!isSegment) {
                         inMemoryDataSourceFactory.createDataSource()
                     } else {
                         httpDataSourceFactory.createDataSource()
                     }
 
-                    return currentDataSource?.open(dataSpec) ?: 0
+                    val bytesRead = currentDataSource?.open(dataSpec) ?: 0L
+
+                    // Skip the 128-byte fake PNG header for segments
+                    if (isSegment && bytesRead != C.LENGTH_UNSET.toLong()) {
+                        val skipBuffer = ByteArray(FAKE_HEADER_SIZE)
+                        var skipped = 0
+                        while (skipped < FAKE_HEADER_SIZE) {
+                            val n = currentDataSource?.read(skipBuffer, skipped, FAKE_HEADER_SIZE - skipped) ?: -1
+                            if (n == -1) break
+                            skipped += n
+                        }
+                        headerSkipped = true
+                        return bytesRead - FAKE_HEADER_SIZE
+                    }
+
+                    return bytesRead
                 }
 
                 override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
+                    // For streaming (LENGTH_UNSET), skip header lazily on first read
+                    if (isSegment && !headerSkipped) {
+                        val skipBuffer = ByteArray(FAKE_HEADER_SIZE)
+                        var skipped = 0
+                        while (skipped < FAKE_HEADER_SIZE) {
+                            val n = currentDataSource?.read(skipBuffer, skipped, FAKE_HEADER_SIZE - skipped) ?: -1
+                            if (n == -1) break
+                            skipped += n
+                        }
+                        headerSkipped = true
+                    }
                     return currentDataSource?.read(buffer, offset, length) ?: -1
                 }
 
                 override fun getUri(): Uri? = currentDataSource?.getUri()
-
                 override fun getResponseHeaders(): Map<String, List<String>> =
                     currentDataSource?.getResponseHeaders() ?: emptyMap()
-
-                override fun close() {
-                    currentDataSource?.close()
-                }
+                override fun close() { currentDataSource?.close() }
             }
         }
     }
