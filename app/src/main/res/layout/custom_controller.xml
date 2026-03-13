@@ -130,7 +130,7 @@
                     android:text="@string/_0_00"
                     android:textColor="@android:color/white" />
 
-                <com.google.android.exoplayer2.ui.DefaultTimeBar
+                <androidx.media3.ui.DefaultTimeBar
                     android:id="@+id/exo_progress"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -243,7 +243,7 @@
 
     </RelativeLayout>
 
-    <com.google.android.exoplayer2.ui.SubtitleView
+    <androidx.media3.ui.SubtitleView
         android:id="@+id/exo_subtitles"
         android:layout_width="match_parent"
         android:layout_height="match_parent"

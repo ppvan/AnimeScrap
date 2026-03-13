@@ -2,28 +2,36 @@ package com.talent.animescrap.ui.viewmodels
 
 import android.app.Application
 import android.media.session.PlaybackState
+import androidx.media3.session.MediaSession
 import android.net.Uri
-import android.support.v4.media.session.MediaSessionCompat
 import android.widget.Toast
-import androidx.lifecycle.*
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import androidx.preference.PreferenceManager
-import com.google.android.exoplayer2.*
-import com.google.android.exoplayer2.database.StandaloneDatabaseProvider
-import com.google.android.exoplayer2.ext.mediasession.MediaSessionConnector
-import com.google.android.exoplayer2.ext.okhttp.OkHttpDataSource
-import com.google.android.exoplayer2.source.MediaSource
-import com.google.android.exoplayer2.source.MergingMediaSource
-import com.google.android.exoplayer2.source.ProgressiveMediaSource
-import com.google.android.exoplayer2.source.SingleSampleMediaSource
-import com.google.android.exoplayer2.source.hls.HlsMediaSource
-import com.google.android.exoplayer2.upstream.DataSource
-import com.google.android.exoplayer2.upstream.DataSpec
-import com.google.android.exoplayer2.upstream.DefaultHttpDataSource
-import com.google.android.exoplayer2.upstream.TransferListener
-import com.google.android.exoplayer2.upstream.cache.CacheDataSource
-import com.google.android.exoplayer2.upstream.cache.LeastRecentlyUsedCacheEvictor
-import com.google.android.exoplayer2.upstream.cache.SimpleCache
-import com.google.android.exoplayer2.util.MimeTypes
+import androidx.media3.common.C
+import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
+import androidx.media3.common.Tracks
+import androidx.media3.database.StandaloneDatabaseProvider
+import androidx.media3.datasource.DataSource
+import androidx.media3.datasource.DataSpec
+import androidx.media3.datasource.TransferListener
+import androidx.media3.datasource.cache.CacheDataSource
+import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
+import androidx.media3.datasource.cache.SimpleCache
+import androidx.media3.datasource.okhttp.OkHttpDataSource
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.MediaSource
+import androidx.media3.exoplayer.source.MergingMediaSource
+import androidx.media3.exoplayer.source.ProgressiveMediaSource
+import androidx.media3.exoplayer.source.SingleSampleMediaSource
+import androidx.media3.exoplayer.hls.HlsMediaSource
+import androidx.media3.common.MimeTypes
+import androidx.media3.common.util.UnstableApi
 import com.talent.animescrap_common.model.AnimeStreamLink
 import com.talent.animescrap.repo.AnimeRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -40,6 +48,7 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 
 @HiltViewModel
+@UnstableApi
 class PlayerViewModel @Inject constructor(
     val app: Application,
     private val animeRepository: AnimeRepository,
@@ -49,7 +58,6 @@ class PlayerViewModel @Inject constructor(
 
     private val settingsPreferenceManager = PreferenceManager.getDefaultSharedPreferences(app)
 
-    // Video Cache
     private val isVideoCacheEnabled = settingsPreferenceManager.getBoolean("video_cache", true)
     private val isAutoPlayEnabled = settingsPreferenceManager.getBoolean("auto_play", true)
 
@@ -66,9 +74,7 @@ class PlayerViewModel @Inject constructor(
     private var qualityMapUnsorted: MutableMap<String, Int> = mutableMapOf()
     var qualityMapSorted: MutableMap<String, Int> = mutableMapOf()
 
-    private var mediaSession: MediaSessionCompat =
-        MediaSessionCompat(app, "AnimeScrap Media Session")
-    private var mediaSessionConnector: MediaSessionConnector = MediaSessionConnector(mediaSession)
+    private lateinit var mediaSession: MediaSession
 
     private var simpleCache: SimpleCache? = null
     private val databaseProvider = StandaloneDatabaseProvider(app)
@@ -78,17 +84,16 @@ class PlayerViewModel @Inject constructor(
     init {
         player.prepare()
         player.playWhenReady = true
-        mediaSessionConnector.setPlayer(player)
-        mediaSession.isActive = true
+
+        mediaSession = MediaSession.Builder(app, player)
+            .setId("AnimeScrap Media Session")
+            .build()
+
         player.addListener(getCustomPlayerListener())
 
-        // Cache
         simpleCache?.release()
         simpleCache = SimpleCache(
-            File(
-                app.cacheDir,
-                "exoplayer"
-            ).also { it.deleteOnExit() }, // Ensures always fresh file
+            File(app.cacheDir, "exoplayer").also { it.deleteOnExit() },
             LeastRecentlyUsedCacheEvictor(300L * 1024L * 1024L),
             databaseProvider
         )
@@ -115,18 +120,20 @@ class PlayerViewModel @Inject constructor(
                 }
             }
         }
-
     }
-
 
     private fun getCustomPlayerListener(): Player.Listener {
         return object : Player.Listener {
 
             override fun onPlaybackStateChanged(playbackState: Int) {
-                if (playbackState == PlaybackState.STATE_NONE || playbackState == PlaybackState.STATE_CONNECTING || playbackState == PlaybackState.STATE_STOPPED)
+                if (playbackState == PlaybackState.STATE_NONE ||
+                    playbackState == PlaybackState.STATE_CONNECTING ||
+                    playbackState == PlaybackState.STATE_STOPPED
+                )
                     isLoading.postValue(true)
                 else
                     isLoading.postValue(false)
+
                 super.onPlaybackStateChanged(playbackState)
             }
 
@@ -139,15 +146,14 @@ class PlayerViewModel @Inject constructor(
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 super.onIsPlayingChanged(isPlaying)
                 keepScreenOn.postValue(isPlaying)
+
                 val progress = player.duration - player.currentPosition
                 if (progress <= 0 && isAutoPlayEnabled && !isPlaying)
                     playNextEp.postValue(true)
             }
 
             override fun onTracksChanged(tracks: Tracks) {
-                // Update UI using current tracks.
                 for (trackGroup in tracks.groups) {
-                    // Group level information.
                     if (trackGroup.type == C.TRACK_TYPE_VIDEO) {
                         for (i in 0 until trackGroup.length) {
                             val trackFormat = trackGroup.getTrackFormat(i).height
@@ -155,16 +161,17 @@ class PlayerViewModel @Inject constructor(
                                 qualityMapUnsorted["${trackFormat}p"] = i
                             }
                         }
-                        qualityMapUnsorted.entries.sortedBy { it.key.replace("p", "").toInt() }
-                            .reversed().forEach { qualityMapSorted[it.key] = it.value }
+
+                        qualityMapUnsorted.entries
+                            .sortedBy { it.key.replace("p", "").toInt() }
+                            .reversed()
+                            .forEach { qualityMapSorted[it.key] = it.value }
 
                         qualityTrackGroup = trackGroup
                     }
-
                 }
             }
         }
-
     }
 
     private fun releaseCache() {
@@ -174,11 +181,14 @@ class PlayerViewModel @Inject constructor(
 
     private fun setMediaSource(mediaSource: MediaSource) {
         println("Set media Source")
+
         player.stop()
         player.prepare()
+
         qualityMapSorted = mutableMapOf()
         qualityMapUnsorted = mutableMapOf()
         qualityTrackGroup = null
+
         player.setMediaSource(mediaSource)
     }
 
@@ -197,8 +207,10 @@ class PlayerViewModel @Inject constructor(
         m3u8Content: String,
         httpDataSourceFactory: DataSource.Factory
     ): DataSource.Factory {
+
         val inMemoryDataSourceFactory = DataSource.Factory {
             object : DataSource {
+
                 private var inputStream: ByteArrayInputStream? = null
 
                 override fun addTransferListener(transferListener: TransferListener) {}
@@ -213,13 +225,9 @@ class PlayerViewModel @Inject constructor(
                     return inputStream?.read(buffer, offset, length) ?: -1
                 }
 
-                override fun getUri(): Uri? {
-                    return Uri.parse("memory://playlist.m3u8")
-                }
+                override fun getUri(): Uri? = Uri.parse("memory://playlist.m3u8")
 
-                override fun getResponseHeaders(): Map<String, List<String>> {
-                    return emptyMap()
-                }
+                override fun getResponseHeaders(): Map<String, List<String>> = emptyMap()
 
                 override fun close() {
                     inputStream?.close()
@@ -229,6 +237,7 @@ class PlayerViewModel @Inject constructor(
 
         return DataSource.Factory {
             object : DataSource {
+
                 private var currentDataSource: DataSource? = null
 
                 override fun addTransferListener(transferListener: TransferListener) {
@@ -238,11 +247,9 @@ class PlayerViewModel @Inject constructor(
                 override fun open(dataSpec: DataSpec): Long {
                     val uri = dataSpec.uri
 
-                    // Use in-memory source for playlist
                     currentDataSource = if (uri.toString().contains(".m3u8")) {
                         inMemoryDataSourceFactory.createDataSource()
                     } else {
-                        // Use HTTP source for segments
                         httpDataSourceFactory.createDataSource()
                     }
 
@@ -253,13 +260,10 @@ class PlayerViewModel @Inject constructor(
                     return currentDataSource?.read(buffer, offset, length) ?: -1
                 }
 
-                override fun getUri(): Uri? {
-                    return currentDataSource?.getUri()
-                }
+                override fun getUri(): Uri? = currentDataSource?.getUri()
 
-                override fun getResponseHeaders(): Map<String, List<String>> {
-                    return currentDataSource?.getResponseHeaders() ?: emptyMap()
-                }
+                override fun getResponseHeaders(): Map<String, List<String>> =
+                    currentDataSource?.getResponseHeaders() ?: emptyMap()
 
                 override fun close() {
                     currentDataSource?.close()
@@ -269,75 +273,93 @@ class PlayerViewModel @Inject constructor(
     }
 
     private fun prepareMediaSource() {
+
         if (animeStreamLink.value == null) return
+
         var mediaSource: MediaSource
-        val mediaItem: MediaItem
         val headerMap = mutableMapOf<String, String>()
-        animeStreamLink.value!!.extraHeaders?.forEach { header ->
-            headerMap[header.key] = header.value
+
+        animeStreamLink.value!!.extraHeaders?.forEach {
+            headerMap[it.key] = it.value
         }
 
-        println(headerMap)
-
-        // Replace DefaultHttpDataSource.Factory with CustomOkHttpDataSourceFactory
-        val httpDataSourceFactory: DataSource.Factory = CustomOkHttpDataSourceFactory(
-            userAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 16_1_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) GSA/383.0.797833943 Mobile/15E148 Safari/604.1",
-            defaultRequestProperties = headerMap,
-            connectTimeoutMs = 20000,
-            readTimeoutMs = 20000
-        )
+        val httpDataSourceFactory: DataSource.Factory =
+            CustomOkHttpDataSourceFactory(
+                userAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 16_1_2 like Mac OS X)",
+                defaultRequestProperties = headerMap,
+                connectTimeoutMs = 20000,
+                readTimeoutMs = 20000
+            )
 
         var dataSourceFactory: DataSource.Factory = httpDataSourceFactory
 
-        // Check if we have a raw playlist that should be loaded from memory
         if (animeStreamLink.value!!.rawPlaylist != null) {
+
             val m3u8Content = animeStreamLink.value!!.rawPlaylist!!
-            dataSourceFactory = createCombinedDataSourceFactory(m3u8Content, httpDataSourceFactory)
+
+            dataSourceFactory =
+                createCombinedDataSourceFactory(m3u8Content, httpDataSourceFactory)
         }
 
         if (isVideoCacheEnabled) {
+
             val cacheFactory = CacheDataSource.Factory().apply {
                 setCache(simpleCache!!)
                 setUpstreamDataSourceFactory(dataSourceFactory)
             }
+
             dataSourceFactory = cacheFactory
         }
 
-        mediaItem = MediaItem.fromUri(animeStreamLink.value!!.link)
+        val mediaItem = MediaItem.fromUri(animeStreamLink.value!!.link)
 
-        mediaSource = if (animeStreamLink.value!!.isHls) {
-            HlsMediaSource.Factory(dataSourceFactory)
-                .setAllowChunklessPreparation(true)
-                .createMediaSource(mediaItem)
-        } else {
-            ProgressiveMediaSource.Factory(dataSourceFactory)
-                .createMediaSource(mediaItem)
-        }
+        mediaSource =
+            if (animeStreamLink.value!!.isHls) {
+
+                HlsMediaSource.Factory(dataSourceFactory)
+                    .setAllowChunklessPreparation(true)
+                    .createMediaSource(mediaItem)
+
+            } else {
+
+                ProgressiveMediaSource.Factory(dataSourceFactory)
+                    .createMediaSource(mediaItem)
+            }
 
         if (animeStreamLink.value!!.subsLink.isNotBlank()) {
+
             showSubsBtn.postValue(true)
-            val subtitleMediaSource = SingleSampleMediaSource.Factory(httpDataSourceFactory)
-                .createMediaSource(
-                    MediaItem.SubtitleConfiguration.Builder(Uri.parse(animeStreamLink.value!!.subsLink))
-                        .apply {
+
+            val subtitleMediaSource =
+                SingleSampleMediaSource.Factory(httpDataSourceFactory)
+                    .createMediaSource(
+                        MediaItem.SubtitleConfiguration.Builder(
+                            Uri.parse(animeStreamLink.value!!.subsLink)
+                        ).apply {
+
                             if (animeStreamLink.value!!.subsLink.contains("srt"))
                                 setMimeType(MimeTypes.APPLICATION_SUBRIP)
                             else
                                 setMimeType(MimeTypes.TEXT_VTT)
+
                             setLanguage("en")
                             setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
+
                         }.build(),
-                    C.TIME_UNSET
-                )
+                        C.TIME_UNSET
+                    )
+
             mediaSource = MergingMediaSource(mediaSource, subtitleMediaSource)
+
         } else {
             showSubsBtn.postValue(false)
         }
+
         setMediaSource(mediaSource)
     }
-
 }
 
+@UnstableApi
 class CustomOkHttpDataSourceFactory(
     private val userAgent: String,
     private val defaultRequestProperties: Map<String, String> = emptyMap(),
@@ -346,20 +368,16 @@ class CustomOkHttpDataSourceFactory(
 ) : DataSource.Factory {
 
     private val okHttpClient: OkHttpClient by lazy {
-        val connectionSpec = ConnectionSpec.Builder(ConnectionSpec.MODERN_TLS)
-            .tlsVersions(TlsVersion.TLS_1_2, TlsVersion.TLS_1_3)
-            .cipherSuites(
-                CipherSuite.TLS_AES_128_GCM_SHA256,
-                CipherSuite.TLS_AES_256_GCM_SHA384,
-                CipherSuite.TLS_CHACHA20_POLY1305_SHA256,
-                CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-                CipherSuite.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-                CipherSuite.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-                CipherSuite.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-                CipherSuite.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305_SHA256,
-                CipherSuite.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256
-            )
-            .build()
+
+        val connectionSpec =
+            ConnectionSpec.Builder(ConnectionSpec.MODERN_TLS)
+                .tlsVersions(TlsVersion.TLS_1_2, TlsVersion.TLS_1_3)
+                .cipherSuites(
+                    CipherSuite.TLS_AES_128_GCM_SHA256,
+                    CipherSuite.TLS_AES_256_GCM_SHA384,
+                    CipherSuite.TLS_CHACHA20_POLY1305_SHA256
+                )
+                .build()
 
         OkHttpClient.Builder()
             .connectionSpecs(listOf(connectionSpec))
@@ -370,6 +388,7 @@ class CustomOkHttpDataSourceFactory(
     }
 
     override fun createDataSource(): DataSource {
+
         return OkHttpDataSource.Factory(okHttpClient)
             .setUserAgent(userAgent)
             .setDefaultRequestProperties(defaultRequestProperties)

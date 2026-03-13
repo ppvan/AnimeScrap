@@ -1,7 +1,6 @@
 package com.talent.animescrap.repo
 
 import android.app.Application
-import android.content.Context
 import android.util.Log
 import androidx.preference.PreferenceManager
 import com.talent.animescrap.R
@@ -10,8 +9,8 @@ import com.talent.animescrap.room.LinkDao
 import com.talent.animescrap_common.model.AnimeDetails
 import com.talent.animescrap_common.model.AnimeStreamLink
 import com.talent.animescrap_common.model.SimpleAnime
-import com.talent.animescrapsources.SourceSelector
 import com.talent.animescrap_common.source.AnimeSource
+import com.talent.animescrapsources.SourceSelector
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -48,49 +47,48 @@ class AnimeRepositoryImpl @Inject constructor(
         .getDefaultSharedPreferences(application)
         .getString("source", "animevietsub")
 
-    private val animeSource : AnimeSource = SourceSelector(application as Context).getSelectedSource(selectedSource ?: "animevietsub")
+    private var animeSource: AnimeSource? = null
 
     override suspend fun getAnimeDetailsFromSite(contentLink: String) =
         withContext(Dispatchers.IO) {
-            Log.i(TAG, "Getting anime details")
             try {
-                return@withContext animeSource.animeDetails(contentLink)
+                return@withContext getSource().animeDetails(contentLink)
             } catch (e: Exception) {
-                Log.e(TAG, e.toString())
                 return@withContext null
             }
 
         }
 
     override suspend fun searchAnimeFromSite(searchUrl: String) = withContext(Dispatchers.IO) {
-        Log.i(TAG, "Getting to search anime")
         try {
-            return@withContext animeSource.searchAnime(searchUrl)
+            return@withContext getSource().searchAnime(searchUrl)
         } catch (e: Exception) {
-            Log.e(TAG, e.toString())
             return@withContext arrayListOf()
         }
 
     }
 
+    private suspend fun getSource(): AnimeSource {
+        if (animeSource == null) {
+            animeSource = SourceSelector().getSelectedSource(selectedSource ?: "animevietsub")
+        }
+        return animeSource!!
+    }
+
     override suspend fun getLatestAnimeFromSite(): ArrayList<SimpleAnime> =
         withContext(Dispatchers.IO) {
-            Log.i(TAG, "Getting the latest anime")
             try {
-                return@withContext animeSource.latestAnime()
+                return@withContext getSource().latestAnime()
             } catch (e: Exception) {
-                Log.e(TAG, e.toString())
                 return@withContext arrayListOf()
             }
         }
 
     override suspend fun getTrendingAnimeFromSite(): ArrayList<SimpleAnime> =
         withContext(Dispatchers.IO) {
-            Log.i(TAG, "Getting the trending anime")
             try {
-                return@withContext animeSource.trendingAnime()
+                return@withContext getSource().trendingAnime()
             } catch (e: Exception) {
-                Log.e(TAG, e.toString())
                 return@withContext arrayListOf()
             }
         }
@@ -101,11 +99,9 @@ class AnimeRepositoryImpl @Inject constructor(
         extras: List<String>
     ): AnimeStreamLink =
         withContext(Dispatchers.IO) {
-            Log.i(TAG, "Getting the anime stream Link")
             try {
-                return@withContext animeSource.streamLink(animeUrl, animeEpCode, extras)
+                return@withContext getSource().streamLink(animeUrl, animeEpCode, extras)
             } catch (e: Exception) {
-                Log.e(TAG, e.toString())
                 return@withContext AnimeStreamLink("", "", false)
             }
 
@@ -138,9 +134,5 @@ class AnimeRepositoryImpl @Inject constructor(
         favRoomModel: FavRoomModel
     ) = withContext(Dispatchers.IO) {
         linkDao.insert(favRoomModel)
-    }
-
-    companion object {
-        const val TAG = R.string.app_name.toString()
     }
 }

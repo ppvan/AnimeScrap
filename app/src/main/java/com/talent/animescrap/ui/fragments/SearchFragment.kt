@@ -15,7 +15,7 @@ import com.talent.animescrap.adapter.AnimeRecyclerAdapter
 import com.talent.animescrap.databinding.FragmentSearchBinding
 import com.talent.animescrap.ui.viewmodels.SearchViewModel
 import dagger.hilt.android.AndroidEntryPoint
-import java.util.*
+import java.util.Locale
 
 @AndroidEntryPoint
 class SearchFragment : Fragment() {

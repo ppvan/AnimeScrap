@@ -9,13 +9,25 @@ import android.content.res.Configuration
 import android.graphics.Color
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffColorFilter
-import android.os.*
+import android.os.Build
+import android.os.Bundle
+import android.os.CountDownTimer
+import android.os.Handler
+import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
-import android.widget.*
+import android.widget.ArrayAdapter
+import android.widget.Button
+import android.widget.ImageView
+import android.widget.LinearLayout
+import android.widget.ListView
+import android.widget.RelativeLayout
+import android.widget.TextView
+import android.widget.ToggleButton
 import androidx.activity.OnBackPressedCallback
+import androidx.annotation.OptIn
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -26,11 +38,12 @@ import androidx.fragment.app.viewModels
 import androidx.navigation.fragment.findNavController
 import androidx.navigation.fragment.navArgs
 import androidx.preference.PreferenceManager
-import com.google.android.exoplayer2.PlaybackParameters
-import com.google.android.exoplayer2.trackselection.TrackSelectionOverride
-import com.google.android.exoplayer2.ui.AspectRatioFrameLayout
-import com.google.android.exoplayer2.ui.CaptionStyleCompat
-import com.google.android.exoplayer2.ui.DefaultTimeBar
+import androidx.media3.common.PlaybackParameters
+import androidx.media3.common.TrackSelectionOverride
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.ui.AspectRatioFrameLayout
+import androidx.media3.ui.CaptionStyleCompat
+import androidx.media3.ui.DefaultTimeBar
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.snackbar.Snackbar
 import com.talent.animescrap.R
@@ -80,7 +93,7 @@ class PlayerFragment : Fragment() {
 
     private lateinit var sortedEpisodeKeys: List<String>
 
-    override fun onCreateView(
+    @OptIn(UnstableApi::class) override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
@@ -241,7 +254,7 @@ class PlayerFragment : Fragment() {
         super.onSaveInstanceState(outState)
     }
 
-    @SuppressLint("SourceLockedOrientationActivity")
+    @OptIn(UnstableApi::class) @SuppressLint("SourceLockedOrientationActivity")
     private fun prepareButtons() {
 
         // Custom player views
@@ -400,7 +413,7 @@ class PlayerFragment : Fragment() {
     }
 
     private val backCallback = object : OnBackPressedCallback(true) {
-        override fun handleOnBackPressed() {
+        @OptIn(UnstableApi::class) override fun handleOnBackPressed() {
             if(playerView.isControllerFullyVisible && isTV) {
                 playerView.hideController()
                 return

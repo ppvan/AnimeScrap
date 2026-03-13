@@ -9,13 +9,13 @@ import android.util.AttributeSet
 import android.view.GestureDetector
 import android.view.MotionEvent
 import androidx.core.view.GestureDetectorCompat
-import com.google.android.exoplayer2.ui.StyledPlayerView
+import androidx.media3.ui.PlayerView
 
 class DoubleTapPlayerView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0
-) : StyledPlayerView(context, attrs, defStyleAttr) {
+) : PlayerView(context, attrs, defStyleAttr) {
 
     companion object {
         const val SEEK_SECONDS = 10

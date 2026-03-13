@@ -1,8 +1,9 @@
 package com.talent.animescrap.di
 
 import android.app.Application
-import com.google.android.exoplayer2.ExoPlayer
-import com.google.android.exoplayer2.source.MediaSource
+import androidx.annotation.OptIn
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.ExoPlayer
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -13,7 +14,7 @@ import dagger.hilt.android.scopes.ViewModelScoped
 @InstallIn(ViewModelComponent::class)
 object VideoPlayerModule {
 
-    @Provides
+    @OptIn(UnstableApi::class) @Provides
     @ViewModelScoped
     fun provideVideoPlayer(app: Application): ExoPlayer {
         return ExoPlayer.Builder(app)
