@@ -15,7 +15,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
+import javax.inject.Singleton
 
 
 interface AnimeRepository {
@@ -37,10 +41,10 @@ interface AnimeRepository {
     suspend fun addFavToRoom(favRoomModel: FavRoomModel)
 }
 
-
+@Singleton
 class AnimeRepositoryImpl @Inject constructor(
     private val linkDao: LinkDao,
-    application: Application
+    val application: Application
 ) : AnimeRepository {
 
     private val selectedSource = PreferenceManager
@@ -69,11 +73,39 @@ class AnimeRepositoryImpl @Inject constructor(
     }
 
     private suspend fun getSource(): AnimeSource {
+
         if (animeSource == null) {
-            animeSource = SourceSelector().getSelectedSource(selectedSource ?: "animevietsub")
+            val source = getLatestDomain()
+            animeSource = SourceSelector().getSelectedSource(baseUrl = source)
         }
+
         return animeSource!!
     }
+
+    private suspend fun getLatestDomain(): String =
+        withContext(Dispatchers.IO) {
+            try {
+                val client = OkHttpClient.Builder()
+                    .followRedirects(true)
+                    .connectTimeout(10, TimeUnit.SECONDS)
+                    .build()
+
+                val request = Request.Builder()
+                    .url("https://bit.ly/animevietsubtv")
+                    .build()
+
+                client.newCall(request).execute().use { response ->
+                    if (response.isSuccessful) {
+                        val finalUrl = response.request.url.toString().removeSuffix("/")
+                        return@withContext finalUrl
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+
+            return@withContext "https://animevietsub.mx"
+        }
 
     override suspend fun getLatestAnimeFromSite(): ArrayList<SimpleAnime> =
         withContext(Dispatchers.IO) {

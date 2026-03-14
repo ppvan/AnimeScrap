@@ -7,6 +7,7 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -14,6 +15,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 abstract class RepositoryModule {
 
     @Binds
+    @Singleton
     abstract fun bindAnimeRepository(repository: AnimeRepositoryImpl): AnimeRepository
 
 }

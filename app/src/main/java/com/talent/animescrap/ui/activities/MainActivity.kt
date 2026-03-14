@@ -122,6 +122,7 @@ class MainActivity : AppCompatActivity() {
                 showUpdateAlertDialog(updateDetails)
             }
         }
+
     }
 
     fun showUpdateAlertDialog(updateDetails: UpdateDetails) {

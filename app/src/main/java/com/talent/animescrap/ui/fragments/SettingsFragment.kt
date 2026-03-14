@@ -38,7 +38,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
         val sourcePreference = ListPreference(requireContext())
         sourcePreference.key = "source"
         sourcePreference.title = getString(R.string.source_list_pref_title)
-        val sourceList = SourceSelector().sourceMap.keys
+        val sourceList = SourceSelector.AvailableSources
         sourcePreference.entryValues = sourceList.toTypedArray()
         sourcePreference.entries = sourceList.map {
             it.uppercase().replace("_", " ")

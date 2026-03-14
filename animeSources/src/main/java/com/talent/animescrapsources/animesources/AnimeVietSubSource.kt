@@ -60,7 +60,7 @@ class AniVietSubSource(private val domain: String = BASE_URL) : AnimeSource {
      * Episodes are returned as a map of server name → (episode title → hash).
      */
     override suspend fun animeDetails(contentLink: String): AnimeDetails {
-        val movieId = extractTrailingNumber(contentLink)
+        val movieId = extractLargestNumber(contentLink)
         val url = joinPath(domain, "phim", "-$movieId", "xem-phim.html")
         val html = client.newCall(Request.Builder().url(url).build()).execute()
             .use { it.body!!.string() }
@@ -119,7 +119,7 @@ class AniVietSubSource(private val domain: String = BASE_URL) : AnimeSource {
         animeEpCode: String,
         extras: List<String>?
     ): AnimeStreamLink {
-        val movieId = extractTrailingNumber(animeUrl)
+        val movieId = extractLargestNumber(animeUrl)
         val apiUrl = joinPath(domain, PLAYLIST_API)
 
         val body = FormBody.Builder()
@@ -163,7 +163,7 @@ class AniVietSubSource(private val domain: String = BASE_URL) : AnimeSource {
      * [callback] receives progress in 0.0–1.0.
      */
     fun download(animeUrl: String, animeEpCode: String, out: OutputStream, callback: (Float) -> Unit) {
-        val movieId  = extractTrailingNumber(animeUrl)
+        val movieId  = extractLargestNumber(animeUrl)
         // Re-use the blocking OkHttp path (call from a coroutine dispatcher if needed)
         val playlist = fetchPlaylistBlocking(movieId, animeEpCode)
         val segmentUrls = extractSegmentUrls(playlist)
@@ -322,7 +322,7 @@ class AniVietSubSource(private val domain: String = BASE_URL) : AnimeSource {
     private fun extractSegmentUrls(playlist: String): List<String> =
         playlist.lines().map { it.trim() }.filter { it.startsWith("http") }
 
-    private fun extractTrailingNumber(text: String): Int {
+    private fun extractLargestNumber(text: String): Int {
         var last = 0
         var cur = 0
         for (ch in text) {
