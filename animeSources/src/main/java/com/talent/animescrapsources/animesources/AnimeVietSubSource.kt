@@ -60,7 +60,7 @@ class AniVietSubSource(private val domain: String = BASE_URL) : AnimeSource {
      * Episodes are returned as a map of server name → (episode title → hash).
      */
     override suspend fun animeDetails(contentLink: String): AnimeDetails {
-        val movieId = extractLargestNumber(contentLink)
+        val movieId = extractTrailingNumber(contentLink)
         val url = joinPath(domain, "phim", "-$movieId", "xem-phim.html")
         val html = client.newCall(Request.Builder().url(url).build()).execute()
             .use { it.body!!.string() }
@@ -119,7 +119,7 @@ class AniVietSubSource(private val domain: String = BASE_URL) : AnimeSource {
         animeEpCode: String,
         extras: List<String>?
     ): AnimeStreamLink {
-        val movieId = extractLargestNumber(animeUrl)
+        val movieId = extractTrailingNumber(animeUrl)
         val apiUrl = joinPath(domain, PLAYLIST_API)
 
         val body = FormBody.Builder()
@@ -163,7 +163,7 @@ class AniVietSubSource(private val domain: String = BASE_URL) : AnimeSource {
      * [callback] receives progress in 0.0–1.0.
      */
     fun download(animeUrl: String, animeEpCode: String, out: OutputStream, callback: (Float) -> Unit) {
-        val movieId  = extractLargestNumber(animeUrl)
+        val movieId  = extractTrailingNumber(animeUrl)
         // Re-use the blocking OkHttp path (call from a coroutine dispatcher if needed)
         val playlist = fetchPlaylistBlocking(movieId, animeEpCode)
         val segmentUrls = extractSegmentUrls(playlist)
@@ -322,19 +322,20 @@ class AniVietSubSource(private val domain: String = BASE_URL) : AnimeSource {
     private fun extractSegmentUrls(playlist: String): List<String> =
         playlist.lines().map { it.trim() }.filter { it.startsWith("http") }
 
-    /** Largest contiguous integer found anywhere in [text] (matches Go helper). */
-    private fun extractLargestNumber(text: String): Int {
-        var max = 0
+    private fun extractTrailingNumber(text: String): Int {
+        var last = 0
         var cur = 0
         for (ch in text) {
             if (ch in '0'..'9') {
                 cur = cur * 10 + (ch - '0')
-                if (cur >= max) max = cur
             } else {
+                if (cur > 0) last = cur
                 cur = 0
             }
         }
-        return max
+        // Handle number at end of string
+        if (cur > 0) last = cur
+        return last
     }
 
     /** Join URL path segments safely (mirrors Go's url.JoinPath). */
